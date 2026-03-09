@@ -62,50 +62,6 @@ export namespace Server {
     () =>
       // TODO: Break server.ts into smaller route files to fix type inference
       app
-        .onError((err, c) => {
-          log.error("failed", {
-            error: err,
-          })
-          if (err instanceof NamedError) {
-            let status: ContentfulStatusCode
-            if (err instanceof NotFoundError) status = 404
-            else if (err instanceof Provider.ModelNotFoundError) status = 400
-            else if (err.name.startsWith("Worktree")) status = 400
-            else status = 500
-            return c.json(err.toObject(), { status })
-          }
-          if (err instanceof HTTPException) return err.getResponse()
-          const message = err instanceof Error && err.stack ? err.stack : err.toString()
-          return c.json(new NamedError.Unknown({ message }).toObject(), {
-            status: 500,
-          })
-        })
-        .use((c, next) => {
-          // Allow CORS preflight requests to succeed without auth.
-          // Browser clients sending Authorization headers will preflight with OPTIONS.
-          if (c.req.method === "OPTIONS") return next()
-          const password = Flag.OPENCODE_SERVER_PASSWORD
-          if (!password) return next()
-          const username = Flag.OPENCODE_SERVER_USERNAME ?? "opencode"
-          return basicAuth({ username, password })(c, next)
-        })
-        .use(async (c, next) => {
-          const skipLogging = c.req.path === "/log"
-          if (!skipLogging) {
-            log.info("request", {
-              method: c.req.method,
-              path: c.req.path,
-            })
-          }
-          const timer = log.time("request", {
-            method: c.req.method,
-            path: c.req.path,
-          })
-          await next()
-          if (!skipLogging) {
-            timer.stop()
-          }
-        })
         .use(
           cors({
             origin(input) {
@@ -132,6 +88,52 @@ export namespace Server {
             },
           }),
         )
+        .onError((err, c) => {
+          log.error("failed", {
+            error: err,
+          })
+          if (err instanceof NamedError) {
+            let status: ContentfulStatusCode
+            if (err instanceof NotFoundError) status = 404
+            else if (err instanceof Provider.ModelNotFoundError) status = 400
+            else if (err.name.startsWith("Worktree")) status = 400
+            else status = 500
+            return c.json(err.toObject(), { status })
+          }
+          if (err instanceof HTTPException) return err.getResponse()
+          const message = err instanceof Error && err.stack ? err.stack : err.toString()
+          return c.json(new NamedError.Unknown({ message }).toObject(), {
+            status: 500,
+          })
+        })
+        .use((c, next) => {
+          // Skip authentication for CORS preflight requests (OPTIONS method).
+          // The CORS middleware above already handles setting CORS headers.
+          // Browser clients sending Authorization headers will preflight with OPTIONS,
+          // which doesn't require authentication.
+          if (c.req.method === "OPTIONS") return next()
+          const password = Flag.OPENCODE_SERVER_PASSWORD
+          if (!password) return next()
+          const username = Flag.OPENCODE_SERVER_USERNAME ?? "opencode"
+          return basicAuth({ username, password })(c, next)
+        })
+        .use(async (c, next) => {
+          const skipLogging = c.req.path === "/log"
+          if (!skipLogging) {
+            log.info("request", {
+              method: c.req.method,
+              path: c.req.path,
+            })
+          }
+          const timer = log.time("request", {
+            method: c.req.method,
+            path: c.req.path,
+          })
+          await next()
+          if (!skipLogging) {
+            timer.stop()
+          }
+        })
         .route("/global", GlobalRoutes())
         .put(
           "/auth/:providerID",

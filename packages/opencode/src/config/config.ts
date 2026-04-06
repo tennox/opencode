@@ -872,6 +872,10 @@ export namespace Config {
         .describe(
           "Enable or disable snapshot tracking. When false, filesystem snapshots are not recorded and undoing or reverting will not undo/redo file changes. Defaults to true.",
         ),
+      showReasoningSummaries: z
+        .boolean()
+        .optional()
+        .describe("Show reasoning summaries in the UI. Defaults to false."),
       plugin: PluginSpec.array().optional(),
       share: z
         .enum(["manual", "auto", "disabled"])

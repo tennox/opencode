@@ -2,6 +2,7 @@ import { createStore, reconcile } from "solid-js/store"
 import { createEffect, createMemo } from "solid-js"
 import { createSimpleContext } from "@opencode-ai/ui/context"
 import { persisted } from "@/utils/persist"
+import { useGlobalSync } from "./global-sync"
 
 export interface NotificationSettings {
   agent: boolean
@@ -137,6 +138,7 @@ function withFallback<T>(read: () => T | undefined, fallback: T) {
 export const { use: useSettings, provider: SettingsProvider } = createSimpleContext({
   name: "Settings",
   init: () => {
+    const globalSync = useGlobalSync()
     const [store, setStore, _, ready] = persisted("settings.v3", createStore<Settings>(defaultSettings))
 
     createEffect(() => {
@@ -194,7 +196,7 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         },
         showReasoningSummaries: withFallback(
           () => store.general?.showReasoningSummaries,
-          defaultSettings.general.showReasoningSummaries,
+          globalSync.config.showReasoningSummaries ?? defaultSettings.general.showReasoningSummaries,
         ),
         setShowReasoningSummaries(value: boolean) {
           setStore("general", "showReasoningSummaries", value)
